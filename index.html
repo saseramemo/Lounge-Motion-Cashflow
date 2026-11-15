@@ -369,37 +369,5 @@ document.addEventListener('input',e=>{const i=e.target.id,m={sq:sTbl,sp:sTbl,spe
  if(['xb','xd','xbl','xdl'].includes(i)&&RC&&RC.st)rcUpd();
  if(i=='sfF'){const q=e.target.value.trim().toLowerCase(),L=S.products.filter(p=>p.name.toLowerCase().includes(q));$('#sfP').innerHTML=L.length?L.map(optP).join(''):'<option value="">Motion tidak ditemukan</option>';sInfo()}
  if(['sfP','sfQ','sfO','sfW'].includes(i))sInfo()});
- /* ===== PATCH: GAJIAN BERJALAN =====
-   Tempel blok ini TEPAT SEBELUM baris terakhir skrip:  migrate();persist();render();
-   Fungsi vGaji, rcPay, rcDo lama otomatis tertimpa (deklarasi terakhir yang dipakai).
-   Aturan: tiap karyawan dibayar untuk semua penjualan yang BELUM terbayar sampai hari ini.
-   Penjualan yang masuk setelah pembayaran (termasuk tanggal mundur) ikut pembayaran berikutnya. */
-const wkOf=st=>S.wallet.filter(w=>w.ak&&w.ak.startsWith('wk:'+st.id+':'));
-const lastPay=st=>wkOf(st).sort((x,y)=>(y.ts||0)-(x.ts||0))[0];
-const fixedOk=st=>!wkOf(st).some(w=>w.date>=mon(today())); /* gaji pokok mingguan: sekali per minggu kalender */
-const fd=pd=>pd.length?pd.reduce((m,s)=>s.date<m?s.date:m,pd[0].date):today();
-function pending(st){const ids=new Set();let to='';
- wkOf(st).forEach(w=>{if(w.sids)w.sids.forEach(i=>ids.add(i));else{const g=(w.ak.split(':')[2]||'').slice(0,10),d=w.to||(/^\d{4}-\d\d-\d\d$/.test(g)?addDs(g,6):'');if(d>to)to=d}}); /* pembayaran lama (mingguan) dianggap menutup sampai hari Minggu */
- const t=today();return S.sales.filter(s=>s.date<=t&&s.date>to&&!ids.has(s.id))}
-function vGaji(){const t=today(),ym=t.slice(0,7),yr=t.slice(0,4);
- const card=(tt,sub,amt,key,cat,desc)=>{PAY[key]={amt,cat,desc};const p=S.wallet.find(w=>w.ak==key);return `<div class="card gk"><b>${tt}</b> ${p?'<span class="tag t-income">Lunas</span>':''}<div class="sm">${sub}</div><b class="big">${fmt(p?p.amount:amt)}</b>${p?`<button class="lk" data-a="unpay" data-k="${key}">Batalkan</button>`:amt>0?`<button class="btn" data-a="pay" data-k="${key}">Bayar &amp; catat</button>`:'<span class="sm">Belum ada</span>'}</div>`};
- const sc=st=>{const pd=pending(st),c=calcStaff(st,pd,fixedOk(st)),lp=lastPay(st),ru=[];
-  if(c.fixed>0)ru.push('Gaji pokok mingguan: '+fmt(c.fixed));
-  if(st.ownerPct>0)ru.push(`Royalti motion milik ${st.ownerPct}% (${c.own.length}): ${fmt(c.oSum)}`);
-  if(st.workerPct>0)ru.push(`Upah mengerjakan ${st.workerPct}% (${c.wrk.length}): ${fmt(c.wSum)}`);
-  if(st.salesPct>0)ru.push(`Bagi hasil ${st.salesPct}% dari ${fmt(c.bs)} (${st.basis=='bersih'?'omzet − komisi staf':'omzet'}): ${fmt(c.sAmt)}`);
-  if(c.ded>0)ru.push(`Potongan ${esc(st.dedLabel||'')} ${st.dedPct}%: −${fmt(c.ded)}`);
-  return `<div class="card gk"><div class="chd"><div><b>${esc(st.name)}</b> <span class="tag t-basic">${esc(st.role)}</span></div><span class="act"><button data-a="est" data-id="${esc(st.id)}">Edit</button><button class="dl" data-a="dst" data-id="${esc(st.id)}">Hapus</button></span></div><div class="sm" style="margin-top:6px">Periode berjalan: <b>${dmy(fd(pd)).slice(0,5)} – ${dmy(t).slice(0,5)}</b> · ${pd.length} penjualan belum dibayar</div><div class="sm">${ru.join('<br>')||'Belum ada aturan penghasilan. Klik Edit.'}</div><b class="big">${fmt(c.net)}</b>${c.net>0?`<button class="btn" data-a="rcp" data-id="${esc(st.id)}">Bayar &amp; Buat Struk</button>`:'<span class="sm">Belum ada yang perlu dibayar</span>'}${lp?`<div class="hint">Terakhir dibayar ${dmy(lp.date)} · ${fmt(lp.amount)} ${lp.rc?`<button class="lk" data-a="rcv" data-k="${esc(lp.ak)}">Lihat Struk</button>`:''}<button class="lk" data-a="unpay" data-k="${esc(lp.ak)}">Batalkan</button></div>`:''}</div>`};
- return `<div class="card"><b>Gajian berjalan</b><div class="hint">Tiap karyawan dihitung sejak pembayaran terakhirnya sampai hari ini. Penjualan yang belum terbayar, termasuk yang baru diinput setelah pembayaran, otomatis ikut pembayaran berikutnya: tidak dobel dan tidak terlewat. Gaji pokok mingguan ditambahkan sekali per minggu (Senin–Minggu).</div><button class="btn sec" data-a="ast">+ Tambah Karyawan</button></div>
-<div class="grid">${S.staff.map(sc).join('')}</div>
-<div class="grid">${card('Server','Rp20.000 per bulan · '+ym,20000,'srv:'+ym,'Server & Hosting','Server bulan '+ym)}${card('Domain','Rp300.000 per tahun · '+yr,300000,'dom:'+yr,'Domain','Domain tahun '+yr)}</div>
-<div class="card"><h3>Lainnya</h3><div class="sm">Software: gratis (Rp0)</div><div class="acts"><button class="btn sec" data-a="out" data-c="Marketing">+ Marketing</button><button class="btn sec" data-a="in" data-c="Tambahan Modal">+ Modal awal</button></div></div>`}
-function rcPay(st){const pd=pending(st),c=calcStaff(st,pd,fixedOk(st));
- RC={st,c,pd,a:fd(pd),b:today(),no:'LM-'+today().replace(/-/g,'')+'-'+Math.random().toString(36).slice(2,6).toUpperCase()};rcOpen(1)}
-function rcDo(){if(!RC||!RC.st)return;const r=RC.r,st=RC.st,to=RC.b,key='wk:'+st.id+':'+to+'.'+Math.random().toString(36).slice(2,6);
- if(r.net<=0)return toast('Total diterima harus lebih dari 0','err');
- S.wallet.push({id:uid(),ts:Date.now(),type:'expense',cat:'Gaji',desc:`Gaji ${st.name} — periode ${r.period}`,amount:r.net,date:r.date,note:'Otomatis dari Gajian',ak:key,to,sids:RC.pd.map(s=>s.id),meta:{name:st.name,pos:st.role,period:to.slice(0,7)},rc:r});
- persist();RC={r};render();rcOpen(0);toast('Gaji tercatat. Struk siap disalin atau diekspor')}
-/* ===== AKHIR PATCH ===== */
 migrate();persist();render();
 </script></body></html>
